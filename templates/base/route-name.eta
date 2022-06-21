@@ -13,24 +13,64 @@ const {
 } = routeInfo;
 const { _, fmtToJSDocLine, require } = utils;
 
-const methodAliases = {
-  get: (pathName, hasPathInserts) =>
-    _.camelCase(`${pathName}_${hasPathInserts ? "detail" : "list"}`),
-  post: (pathName, hasPathInserts) => _.camelCase(`${pathName}_create`),
-  put: (pathName, hasPathInserts) => _.camelCase(`${pathName}_update`),
-  patch: (pathName, hasPathInserts) => _.camelCase(`${pathName}_partial_update`),
-  delete: (pathName, hasPathInserts) => _.camelCase(`${pathName}_delete`),
+const DICTIONARY = {
+  companies: 'company',
+  users: 'user',
+  relatives: 'relative',
+  educations: 'education',
+  accounts: 'account',
+  groups: 'group',
+  invites: 'invite',
+  notifications: 'notification',
+  document_copies: 'documentCopy',
 };
 
+const SERVICE_PARTS= ['api', 'v1'];
+
+const METHODS_DICTIONARY = {
+  put: 'update',
+  patch: 'update'
+};
+
+const isDynamic = (str)=> str.startsWith(‘{’);
+
+const generateName = (
+  route,
+  method
+) => {
+  if (!route || !method) {
+    return undefined;
+  }
+
+  const lower = route.toLowerCase();
+  const lowerMethod = method.toLowerCase();
+  let result = METHODS_DICTIONARY[lowerMethod] || lowerMethod;
+
+  const routeParts = lower.split('/');
+  for (let i = 0; i < routeParts.length; i++) {
+    const part = routeParts[i];
+    if (SERVICE_PARTS.includes(part) || isDynamic(part)) {
+      continue;
+    } else {
+      const nextPart = routeParts[i + 1];
+      if (nextPart && isDynamic(nextPart)) {
+        result += `_${DICTIONARY[part] || part}`;
+      } else {
+        result += `_${part}`;
+      }
+    }
+  }
+  return _.camelCase(result);
+}
+
 const createCustomOperationId = (method, route, moduleName) => {
-  const hasPathInserts = /\{(\w){1,}\}/g.test(route);
   const splitedRouteBySlash = _.compact(_.replace(route, /\{(\w){1,}\}/g, "").split("/"));
   const routeParts = (splitedRouteBySlash.length > 1
     ? splitedRouteBySlash.splice(1)
     : splitedRouteBySlash
   ).join("_");
-  return routeParts.length > 3 && methodAliases[method]
-    ? methodAliases[method](routeParts, hasPathInserts)
+  return routeParts.length > 3
+    ? generateName(route, method)
     : _.camelCase(_.lowerCase(method) + "_" + [moduleName].join("_")) || "index";
 };
 
